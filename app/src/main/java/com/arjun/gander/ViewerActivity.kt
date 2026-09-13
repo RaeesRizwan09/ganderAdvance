@@ -16,6 +16,7 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.InputType
 import android.view.GestureDetector
+import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
@@ -52,6 +53,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebMessagePortCompat
 import androidx.webkit.WebViewAssetLoader
@@ -152,6 +155,8 @@ class ViewerActivity : AppCompatActivity() {
 
         /** Cover art target while the view has not been measured yet. */
         private const val ART_FALLBACK_PX = 512
+
+        private const val PAYLOAD_SELECT = "select"
     }
 
     private var webView: ScrollProbeWebView? = null
@@ -293,7 +298,12 @@ class ViewerActivity : AppCompatActivity() {
         }
 
         val name = resolveDisplayName(uri)
-        toolbar.title = name
+        documentUri = uri
+        toolbar.title = ""
+        toolbar.contentDescription = name
+        pageStrip.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        pageStrip.adapter = pageStripAdapter
+        pageStrip.itemAnimator = null
         val ext = name.substringAfterLast('.', "").lowercase()
         val mime = runCatching { contentResolver.getType(uri) }.getOrNull() ?: intent.type
 
@@ -577,6 +587,12 @@ class ViewerActivity : AppCompatActivity() {
     private var pageAt = 0
     private var pageTotal = 0
 
+    private var documentUri: Uri? = null
+
+    private val pageStrip: RecyclerView by lazy { findViewById(R.id.pageStrip) }
+
+    private val pageStripAdapter = PageThumbAdapter()
+
     /**
      * True while the find box is up. The page readout stands down for it: two counters
      * on one screen, the lower of them behind the keyboard, is not information.
@@ -681,7 +697,7 @@ class ViewerActivity : AppCompatActivity() {
      * else ever sets the total.
      */
     private fun showPageIndicator() {
-        if (pageTotal < 2 || searchBarOpen) return
+        if (pageTotal < 2 || searchBarOpen || pageStripWanted()) return
         // While the thumb has hold of it, where the pill sits and whether it is up at
         // all belong to the drag. The number is set where it changes, not here: this
         // runs once a frame for the length of a fling, and the text is the same on all
@@ -1006,7 +1022,7 @@ class ViewerActivity : AppCompatActivity() {
      * to the finger. One readout that never moves turned out to be the better trade.
      */
     private fun showDragReadout(fraction: Float) {
-        if (searchBarOpen) return
+        if (searchBarOpen || pageStripWanted()) return
         val pill = pageIndicator
         if (pageTotal < 2) {
             // Nothing else knows how far into a Word document or a five megabyte log the
@@ -1121,6 +1137,7 @@ class ViewerActivity : AppCompatActivity() {
             searchBarOpen = true
             applyImmersive(false)
             pageFader.hideNow()
+            syncPageStripVisibility()
             input.requestFocus()
             imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
             true
@@ -1153,6 +1170,7 @@ class ViewerActivity : AppCompatActivity() {
             bar.visibility = LinearLayout.GONE
             searchBackCallback.isEnabled = false
             searchBarOpen = false
+            syncPageStripVisibility()
         }
         findViewById<ImageButton>(R.id.searchClose).setOnClickListener { closeSearchBar() }
     }
@@ -1223,6 +1241,7 @@ class ViewerActivity : AppCompatActivity() {
                         if (pageTotal == 0) goToPageItem?.isVisible = true
                         pageAt = n
                         pageTotal = of
+                        bindPageStrip()
                         setPageIndicatorText()
                         showPageIndicator()
                         return
@@ -1282,6 +1301,7 @@ class ViewerActivity : AppCompatActivity() {
         immersive = on
         immersiveBackCallback.isEnabled = on
         findViewById<View>(R.id.toolbar).visibility = if (on) View.GONE else View.VISIBLE
+        syncPageStripVisibility()
         val bars = WindowInsetsControllerCompat(window, window.decorView)
         if (on) {
             bars.hide(WindowInsetsCompat.Type.systemBars())
@@ -1643,6 +1663,8 @@ class ViewerActivity : AppCompatActivity() {
         pageAt = 0
         pageTotal = 0
         goToPageItem?.isVisible = false
+        pageStripAdapter.submit(null, 0)
+        syncPageStripVisibility()
         pageFader.hideNow()
         fastScrollEnabled = false
         hideFastScrollNow()
@@ -1838,6 +1860,106 @@ class ViewerActivity : AppCompatActivity() {
         override fun close() {
             runCatching { source.close() }
             runCatching { alsoClose.close() }
+        }
+    }
+
+    private fun pageStripWanted(): Boolean =
+        pageTotal >= 2 && !searchBarOpen && !immersive && documentUri != null
+
+    private fun bindPageStrip() {
+        pageStripAdapter.submit(documentUri, pageTotal)
+        pageStripAdapter.select(pageAt)
+        syncPageStripVisibility()
+        scrollPageStripToCurrent()
+    }
+
+    private fun syncPageStripVisibility() {
+        val show = pageStripWanted()
+        pageStrip.visibility = if (show) View.VISIBLE else View.GONE
+        if (show) pageFader.hideNow()
+    }
+
+    private fun scrollPageStripToCurrent() {
+        if (!pageStripWanted()) return
+        val pos = pageAt - 1
+        if (pos < 0) return
+        val lm = pageStrip.layoutManager as? LinearLayoutManager ?: return
+        val first = lm.findFirstCompletelyVisibleItemPosition()
+        val last = lm.findLastCompletelyVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION || pos < first || pos > last) {
+            pageStrip.smoothScrollToPosition(pos)
+        }
+    }
+
+    private fun goToPageNumber(n: Int) {
+        if (n < 1 || n > pageTotal) return
+        searchPort?.postMessage(WebMessageCompat("g$n"))
+    }
+
+    private inner class PageThumbAdapter : RecyclerView.Adapter<PageThumbAdapter.Holder>() {
+        private var uri: Uri? = null
+        private var count = 0
+        private var selected = 0
+
+        fun submit(uri: Uri?, count: Int) {
+            if (this.uri == uri && this.count == count) return
+            this.uri = uri
+            this.count = count
+            if (count == 0) selected = 0
+            notifyDataSetChanged()
+        }
+
+        fun select(page: Int) {
+            if (page == selected) return
+            val old = selected
+            selected = page
+            if (old in 1..count) notifyItemChanged(old - 1, PAYLOAD_SELECT)
+            if (page in 1..count) notifyItemChanged(page - 1, PAYLOAD_SELECT)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_page_thumb, parent, false)
+            return Holder(view)
+        }
+
+        override fun getItemCount(): Int = count
+
+        override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
+            if (payloads.any { it == PAYLOAD_SELECT }) {
+                holder.bindSelected(position + 1 == selected)
+                return
+            }
+            super.onBindViewHolder(holder, position, payloads)
+        }
+
+        override fun onBindViewHolder(holder: Holder, position: Int) {
+            val page = position + 1
+            val src = uri
+            holder.number.text = page.toString()
+            holder.itemView.contentDescription =
+                getString(R.string.page_indicator_spoken, page, count)
+            holder.bindSelected(page == selected)
+            if (src != null) Thumbs.loadPdfPage(holder.itemView.context, src, position, holder.image)
+            else holder.image.setImageDrawable(null)
+            holder.itemView.setOnClickListener { goToPageNumber(page) }
+        }
+
+        inner class Holder(view: View) : RecyclerView.ViewHolder(view) {
+            val frame: View = view.findViewById(R.id.pageThumbFrame)
+            val image: ImageView = view.findViewById(R.id.pageThumb)
+            val number: TextView = view.findViewById(R.id.pageNumber)
+
+            fun bindSelected(on: Boolean) {
+                itemView.isSelected = on
+                frame.isSelected = on
+                number.setTextColor(
+                    ContextCompat.getColor(
+                        itemView.context,
+                        if (on) R.color.gander_primary else R.color.gander_on_surface_variant
+                    )
+                )
+            }
         }
     }
 

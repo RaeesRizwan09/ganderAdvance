@@ -158,4 +158,21 @@
             android:textColor="#FFFFFF"
             android:visibility="gone" />
     </FrameLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/pageStrip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        android:clipToPadding="false"
+        android:contentDescription="@string/page_strip"
+        android:elevation="4dp"
+        android:orientation="horizontal"
+        android:overScrollMode="ifContent"
+        android:paddingStart="10dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 </LinearLayout>

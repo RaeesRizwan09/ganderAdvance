@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The viewer toolbar no longer shows the file name, and Share now sits in the overflow
+  menu with Save a copy rather than as an icon on the bar.
+
+- Multi-page PDFs gain a thumbnail strip along the bottom. Tapping a page jumps there
+  the same way Go to page does.
+
 - A PDF whose images are JPEG 2000 shows them. Since pdf.js 4 the JPEG 2000 and JBIG2
   decoders have lived in WebAssembly rather than in the bundle, fetched at the moment a
   page meets an image needing one, and Gander shipped neither binary and never told

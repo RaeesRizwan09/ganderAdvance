@@ -56,6 +56,11 @@
         <item name="cornerSize">12dp</item>
     </style>
 
+    <style name="ShapeAppearance.Gander.PageThumb" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">6dp</item>
+    </style>
+
     <!-- About dialog. Body text is inset to the dialog's own 24dp gutter; the
          tappable rows run full bleed so the ripple reaches both edges. Every
          style sets parent="" so the dotted names do not inherit each other. -->

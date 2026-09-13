@@ -22,4 +22,9 @@
          is two pixels on a 357-page document. syncFastScroll reads the same value, so
          the two cannot drift. -->
     <dimen name="fast_scroll_thumb_min">48dp</dimen>
+
+    <dimen name="page_thumb_width">56dp</dimen>
+    <dimen name="page_thumb_height">72dp</dimen>
+    <dimen name="page_thumb_stroke">1dp</dimen>
+    <dimen name="page_thumb_stroke_selected">2dp</dimen>
 </resources>
