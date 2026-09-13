@@ -28,9 +28,12 @@ import java.util.concurrent.Executors
 object Thumbs {
 
     private const val SIZE = 192
+    private const val PAGE_SIZE = 128
 
     private val mem = LruCache<String, Bitmap>(48)
+    private val pageMem = LruCache<String, Bitmap>(24)
     private val executor = Executors.newFixedThreadPool(2)
+    private val pdfPages = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
     fun supported(kind: FileKind, ext: String): Boolean = when (kind) {
@@ -62,6 +65,27 @@ object Thumbs {
                     into.visibility = View.VISIBLE
                     badge.visibility = View.GONE
                 }
+            }
+        }
+    }
+
+    fun loadPdfPage(context: Context, uri: Uri, pageIndex: Int, into: ImageView) {
+        val key = md5("$uri#$pageIndex")
+        into.tag = key
+        pageMem.get(key)?.let {
+            into.setImageBitmap(it)
+            return
+        }
+        into.setImageDrawable(null)
+        val appCtx = context.applicationContext
+        pdfPages.execute {
+            val bmp = fromDisk(appCtx, key)
+                ?: runCatching { pdfPageThumb(appCtx, uri, pageIndex) }.getOrNull()
+                    ?.also { toDisk(appCtx, key, it) }
+                ?: return@execute
+            pageMem.put(key, bmp)
+            main.post {
+                if (into.tag == key) into.setImageBitmap(bmp)
             }
         }
     }
@@ -130,18 +154,25 @@ object Thumbs {
         }
     }
 
-    private fun pdfThumb(ctx: Context, uri: Uri): Bitmap? {
+    private fun pdfThumb(ctx: Context, uri: Uri): Bitmap? = pdfPageThumb(ctx, uri, 0, SIZE)
+
+    private fun pdfPageThumb(
+        ctx: Context,
+        uri: Uri,
+        pageIndex: Int,
+        size: Int = PAGE_SIZE
+    ): Bitmap? {
         val pfd = ctx.contentResolver.openFileDescriptor(uri, "r") ?: return null
-        pfd.use {
+        return pfd.use {
             PdfRenderer(it).use { renderer ->
-                if (renderer.pageCount == 0) return null
-                renderer.openPage(0).use { page ->
-                    val height = (SIZE.toFloat() * page.height / page.width).toInt()
-                        .coerceIn(1, SIZE * 2)
-                    val bmp = Bitmap.createBitmap(SIZE, height, Bitmap.Config.ARGB_8888)
+                if (pageIndex !in 0 until renderer.pageCount) return null
+                renderer.openPage(pageIndex).use { page ->
+                    val height = (size.toFloat() * page.height / page.width).toInt()
+                        .coerceIn(1, size * 2)
+                    val bmp = Bitmap.createBitmap(size, height, Bitmap.Config.ARGB_8888)
                     Canvas(bmp).drawColor(Color.WHITE)
                     page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    return bmp
+                    bmp
                 }
             }
         }

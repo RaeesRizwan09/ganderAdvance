@@ -7,6 +7,13 @@
         android:title="@string/search_in_document"
         android:visible="false"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_page_strip"
+        android:checkable="true"
+        android:icon="@drawable/ic_pages"
+        android:title="@string/page_thumbnails"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
     <!-- Hidden until pdf.html says how many pages there are, the way the search item
          waits for something searchable. It is also the route a screen reader takes to
          this, since the pill it sits beside can be faded out. -->
@@ -26,9 +33,8 @@
         app:showAsAction="never" />
     <item
         android:id="@+id/action_share"
-        android:icon="@drawable/ic_share"
         android:title="@string/share_file"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
     <item
         android:id="@+id/action_save_copy"
         android:title="@string/save_copy"
