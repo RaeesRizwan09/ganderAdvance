@@ -33,4 +33,5 @@
     <!-- List and welcome pad past the pill plus the FAB that now sits above it. -->
     <dimen name="home_list_padding_bottom">168dp</dimen>
     <dimen name="home_fab_margin_bottom">96dp</dimen>
+    <dimen name="row_text_indent">14dp</dimen>
 </resources>

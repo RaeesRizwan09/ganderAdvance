@@ -14,6 +14,7 @@
     <!-- The row itself carries the description (set in MainActivity), so the badge,
          thumbnail, title and subtitle are one TalkBack stop rather than four -->
     <FrameLayout
+        android:id="@+id/badgeFrame"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:importantForAccessibility="no">
@@ -39,6 +40,7 @@
     </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/textCol"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"

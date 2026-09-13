@@ -193,7 +193,7 @@
     <!-- Host is full-bleed so ChangeBounds can stretch the pill in place without
          the rest of the screen taking part in the transition. The pill itself
          is wrap_content: inactive tabs are icons, the open one grows to show
-         its name, and the capsule follows. Destinations are not wired yet. -->
+         its name, and the capsule follows. -->
     <FrameLayout
         android:id="@+id/pillNavHost"
         android:layout_width="match_parent"

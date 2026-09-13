@@ -96,6 +96,16 @@ object Thumbs {
         diskFile(context, key).delete()
     }
 
+    /** Drops memory and disk thumbnails. They are rebuilt the next time a row asks. */
+    fun clear(context: Context) {
+        mem.evictAll()
+        pageMem.evictAll()
+        diskDir(context).listFiles()?.forEach { it.delete() }
+    }
+
+    fun diskBytes(context: Context): Long =
+        diskDir(context).listFiles()?.sumOf { it.length() } ?: 0L
+
     fun exifRotation(resolver: ContentResolver, uri: Uri): Int = runCatching {
         resolver.openInputStream(uri)?.use { stream ->
             when (ExifInterface(stream).getAttributeInt(

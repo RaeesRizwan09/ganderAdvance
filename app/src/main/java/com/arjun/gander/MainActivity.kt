@@ -50,7 +50,8 @@ class MainActivity : AppCompatActivity() {
             val onClick: () -> Unit,
             val onLongClick: (() -> Unit)? = null,
             val thumbUri: Uri? = null,
-            val thumbExt: String = ""
+            val thumbExt: String = "",
+            val hideBadge: Boolean = false
         ) : Row
     }
 
@@ -74,6 +75,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var list: RecyclerView
     private lateinit var welcome: View
     private lateinit var fab: ExtendedFloatingActionButton
+    private lateinit var pillNav: PillNavBar
+    private var tab = PillNavBar.TAB_HOME
 
     /**
      * The last "Removed" toast, kept only so the next one can cancel it.
@@ -119,6 +122,10 @@ class MainActivity : AppCompatActivity() {
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
+            if (tab == PillNavBar.TAB_SETTINGS) {
+                pillNav.select(PillNavBar.TAB_HOME, animate = true, notify = true)
+                return
+            }
             stack.removeLast()
             render()
         }
@@ -206,6 +213,26 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.openFileButton).setOnClickListener(openFile)
         findViewById<View>(R.id.addFolderButton).setOnClickListener { openTree.launch(null) }
 
+        pillNav = findViewById(R.id.pillNav)
+        tab = savedInstanceState?.getInt(STATE_TAB, PillNavBar.TAB_HOME) ?: PillNavBar.TAB_HOME
+        if (tab != PillNavBar.TAB_HOME && tab != PillNavBar.TAB_SETTINGS) {
+            tab = PillNavBar.TAB_HOME
+        }
+        pillNav.select(tab, animate = false)
+        pillNav.onTabSelected = PillNavBar.Listener { index ->
+            when (index) {
+                PillNavBar.TAB_FILE -> {
+                    pillNav.select(tab, animate = false)
+                    openDocument.launch(arrayOf("*/*"))
+                }
+                PillNavBar.TAB_SEARCH -> pillNav.select(tab, animate = false)
+                else -> {
+                    tab = index
+                    render()
+                }
+            }
+        }
+
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
     }
@@ -232,6 +259,7 @@ class MainActivity : AppCompatActivity() {
         outState.putStringArrayList(STATE_TREE_URIS, ArrayList(stack.map { it.treeUri.toString() }))
         outState.putStringArrayList(STATE_DOC_IDS, ArrayList(stack.map { it.docId }))
         outState.putStringArrayList(STATE_LABELS, ArrayList(stack.map { it.label }))
+        outState.putInt(STATE_TAB, tab)
     }
 
     private fun restoreStack(state: Bundle?) {
@@ -248,6 +276,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        pillNav.select(tab, animate = false)
         render()
     }
 
@@ -350,6 +379,94 @@ class MainActivity : AppCompatActivity() {
         if (!opened) Toast.makeText(this, R.string.licences_failed, Toast.LENGTH_SHORT).show()
     }
 
+    private fun showSettings() {
+        renderToken++
+        backCallback.isEnabled = true
+        toolbar.title = getString(R.string.nav_settings)
+        lockup.visibility = View.GONE
+        toolbar.navigationIcon =
+            androidx.appcompat.content.res.AppCompatResources.getDrawable(this, R.drawable.ic_back)
+        toolbar.navigationContentDescription = getString(R.string.back)
+        progress.visibility = View.GONE
+        welcome.visibility = View.GONE
+        list.visibility = View.VISIBLE
+        fab.hide()
+        adapter.submit(settingsRows())
+    }
+
+    private fun settingsRows(): List<Row> {
+        val cacheBytes = Thumbs.diskBytes(this)
+        val cacheSubtitle = if (cacheBytes == 0L) {
+            getString(R.string.settings_cache_empty)
+        } else {
+            getString(R.string.settings_cache_size, Formatter.formatShortFileSize(this, cacheBytes))
+        }
+        val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }
+            .getOrNull().orEmpty()
+        return listOf(
+            Row.Item(
+                badge = "",
+                color = 0,
+                title = getString(R.string.settings_theme),
+                subtitle = themeLabel(Settings.themeMode(this)),
+                onClick = { pickTheme() },
+                hideBadge = true
+            ),
+            Row.Item(
+                badge = "",
+                color = 0,
+                title = getString(R.string.settings_clear_cache),
+                subtitle = cacheSubtitle,
+                onClick = { clearCache() },
+                hideBadge = true
+            ),
+            Row.Item(
+                badge = "",
+                color = 0,
+                title = getString(R.string.about_gander),
+                subtitle = getString(R.string.about_version, version),
+                onClick = { showAbout() },
+                hideBadge = true
+            )
+        )
+    }
+
+    private fun themeLabel(mode: Settings.ThemeMode): String = when (mode) {
+        Settings.ThemeMode.DYNAMIC -> getString(R.string.settings_theme_dynamic)
+        Settings.ThemeMode.CUSTOM -> getString(R.string.settings_theme_custom)
+        Settings.ThemeMode.DARK -> getString(R.string.settings_theme_dark)
+        Settings.ThemeMode.LIGHT -> getString(R.string.settings_theme_light)
+        Settings.ThemeMode.SYSTEM -> getString(R.string.settings_theme_system)
+    }
+
+    private fun pickTheme() {
+        val modes = Settings.ThemeMode.entries
+        val labels = modes.map { themeLabel(it) }.toTypedArray()
+        val current = modes.indexOf(Settings.themeMode(this)).coerceAtLeast(0)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.settings_theme)
+            .setSingleChoiceItems(labels, current) { dialog, which ->
+                val chosen = modes[which]
+                dialog.dismiss()
+                val previous = Settings.themeMode(this)
+                if (chosen == previous) return@setSingleChoiceItems
+                Settings.setThemeMode(this, chosen)
+                if (Settings.nightMode(previous) == Settings.nightMode(chosen)) {
+                    recreate()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun clearCache() {
+        Thumbs.clear(this)
+        runCatching { File(cacheDir, SHARED_TEXT_CACHE).delete() }
+        runCatching { File(cacheDir, getString(R.string.licences_file_name)).delete() }
+        Toast.makeText(this, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show()
+        if (tab == PillNavBar.TAB_SETTINGS) showSettings()
+    }
+
     /**
      * Hands a URL to whichever browser the user has. Gander never fetches
      * anything itself, and without the INTERNET permission it could not.
@@ -410,6 +527,10 @@ class MainActivity : AppCompatActivity() {
      * screen until the new one is ready rather than blinking through empty.
      */
     private fun render() {
+        if (tab == PillNavBar.TAB_SETTINGS) {
+            showSettings()
+            return
+        }
         val here = stack.lastOrNull()
         backCallback.isEnabled = here != null
         // At the root the wordmark is the title, centred; inside a folder the title is the
@@ -778,6 +899,8 @@ class MainActivity : AppCompatActivity() {
         const val STATE_TREE_URIS = "stack.treeUris"
         const val STATE_DOC_IDS = "stack.docIds"
         const val STATE_LABELS = "stack.labels"
+        const val STATE_TAB = "tab"
+        const val SHARED_TEXT_CACHE = "shared-text.txt"
     }
 
     private class RowAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -826,9 +949,17 @@ class MainActivity : AppCompatActivity() {
                 is Row.Item -> {
                     val badge = holder.itemView.findViewById<TextView>(R.id.badge)
                     val thumb = holder.itemView.findViewById<ImageView>(R.id.thumb)
+                    val badgeFrame = holder.itemView.findViewById<View>(R.id.badgeFrame)
+                    val textCol = holder.itemView.findViewById<View>(R.id.textCol)
+                    badgeFrame.visibility = if (row.hideBadge) View.GONE else View.VISIBLE
+                    val textLp = textCol.layoutParams as ViewGroup.MarginLayoutParams
+                    textLp.marginStart =
+                        if (row.hideBadge) 0
+                        else textCol.resources.getDimensionPixelSize(R.dimen.row_text_indent)
+                    textCol.layoutParams = textLp
                     badge.text = row.badge
-                    badge.background.mutate().setTint(row.color)
-                    badge.visibility = View.VISIBLE
+                    if (!row.hideBadge) badge.background.mutate().setTint(row.color)
+                    badge.visibility = if (row.hideBadge) View.GONE else View.VISIBLE
                     thumb.visibility = View.GONE
                     thumb.setImageDrawable(null)
                     thumb.tag = null
@@ -845,7 +976,11 @@ class MainActivity : AppCompatActivity() {
                     // the whole announcement. Keeping the badge in it matters: the badge
                     // is hidden once a thumbnail loads, and the file type would go with it
                     holder.itemView.contentDescription =
-                        listOfNotNull(row.title, row.badge, row.subtitle).joinToString(", ")
+                        listOfNotNull(
+                            row.title,
+                            row.badge.takeIf { it.isNotEmpty() },
+                            row.subtitle
+                        ).joinToString(", ")
                     holder.itemView.setOnClickListener { row.onClick() }
                     // Long-press is how a row is removed, and nothing on screen says so.
                     // Naming it for TalkBack is the one place that gesture is announced, so
