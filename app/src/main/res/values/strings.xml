@@ -15,6 +15,12 @@
          nine, the same way a file row carries the description for its own four views. -->
     <string name="welcome_formats_spoken">Opens PDFs, Word documents, Excel spreadsheets, PowerPoint slides, images, video, audio, Markdown and text files.</string>
     <string name="open_a_file">Open a file</string>
+    <!-- Spoken name of the floating pill. The tabs carry their own labels. -->
+    <string name="nav_bar">Navigation</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_file">File</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_settings">Settings</string>
     <string name="recent_files">Recent files</string>
     <string name="folders">Folders</string>
     <string name="add_folder">Add a folder</string>

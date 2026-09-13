@@ -82,7 +82,7 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:clipToPadding="false"
-            android:paddingBottom="88dp" />
+            android:paddingBottom="@dimen/home_list_padding_bottom" />
 
         <!-- The first run, in place of the list rather than at the top of it.
 
@@ -111,7 +111,7 @@
                 android:paddingStart="32dp"
                 android:paddingTop="24dp"
                 android:paddingEnd="32dp"
-                android:paddingBottom="40dp">
+                android:paddingBottom="@dimen/home_list_padding_bottom">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -185,6 +185,32 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="20dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="@dimen/home_fab_margin_bottom"
         android:text="@string/open_a_file" />
+
+    <!-- Host is full-bleed so ChangeBounds can stretch the pill in place without
+         the rest of the screen taking part in the transition. The pill itself
+         is wrap_content: inactive tabs are icons, the open one grows to show
+         its name, and the capsule follows. Destinations are not wired yet. -->
+    <FrameLayout
+        android:id="@+id/pillNavHost"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:padding="@dimen/nav_pill_margin">
+
+        <com.arjun.gander.PillNavBar
+            android:id="@+id/pillNav"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:background="@drawable/bg_nav_pill"
+            android:elevation="6dp"
+            android:outlineProvider="background"
+            android:padding="@dimen/nav_pill_padding" />
+    </FrameLayout>
 </FrameLayout>
