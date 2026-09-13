@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The floating bottom nav. Capsule, not a bar: it sits on the surface
+     rather than replacing it, so the list can scroll underneath.
+
+     Theme roles rather than fixed colours, because this is the app, not a
+     document. Surface-container-highest in both themes, terracotta only on
+     the selected tab so the pill itself does not shout. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="?attr/colorSurfaceContainerHighest" />
+    <stroke
+        android:width="1dp"
+        android:color="?attr/colorOutlineVariant" />
+    <corners android:radius="32dp" />
+</shape>

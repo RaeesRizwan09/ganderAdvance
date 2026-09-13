@@ -22,4 +22,11 @@
          is two pixels on a 357-page document. syncFastScroll reads the same value, so
          the two cannot drift. -->
     <dimen name="fast_scroll_thumb_min">48dp</dimen>
+
+    <!-- Room around the floating pill so it sits above the system nav, not on it. -->
+    <dimen name="nav_pill_margin">16dp</dimen>
+    <dimen name="nav_pill_padding">6dp</dimen>
+    <!-- List and welcome pad past the pill plus the FAB that now sits above it. -->
+    <dimen name="home_list_padding_bottom">168dp</dimen>
+    <dimen name="home_fab_margin_bottom">96dp</dimen>
 </resources>
