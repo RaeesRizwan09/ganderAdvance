@@ -45,6 +45,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
@@ -274,8 +275,12 @@ class ViewerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_viewer)
-        applySystemBarInsets(findViewById(R.id.root))
+        applyGlassInsets(findViewById(R.id.root))
+        findViewById<View>(R.id.toolbar).clipToGlass()
+        findViewById<View>(R.id.searchBar).clipToGlass()
+        findViewById<View>(R.id.pageStrip).clipToGlass()
         onBackPressedDispatcher.addCallback(this, immersiveBackCallback)
         onBackPressedDispatcher.addCallback(this, searchBackCallback)
         pageIndicator.setOnClickListener { askForPage() }
@@ -1280,15 +1285,30 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     /**
-     * Edge to edge is enforced from targetSdk 35 on, so push the layout out of the
-     * status bar, display cutout and navigation bar areas.
+     * The document is full-bleed. Chrome floats over it.
+     *
+     * Padding the root used to cut the page into a slab under an opaque toolbar.
+     * Liquid Glass wants the page to reach the screen edge, with the toolbar,
+     * search bar and page strip as translucent surfaces sitting on top. Insets
+     * therefore land on those surfaces, not on the document.
      */
-    private fun applySystemBarInsets(root: View) {
+    private fun applyGlassInsets(root: View) {
+        val chrome = findViewById<View>(R.id.chromeHost)
+        val pageStrip = findViewById<View>(R.id.pageStrip)
+        val pageIndicator = findViewById<View>(R.id.pageIndicator)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            v.setPadding(bars.left, 0, bars.right, 0)
+            val glass = resources.getDimensionPixelSize(R.dimen.glass_margin)
+            chrome.setPadding(glass, bars.top + glass, glass, 0)
+            val stripLp = pageStrip.layoutParams as android.widget.FrameLayout.LayoutParams
+            stripLp.bottomMargin = glass + bars.bottom
+            pageStrip.layoutParams = stripLp
+            val pillLp = pageIndicator.layoutParams as android.widget.FrameLayout.LayoutParams
+            pillLp.bottomMargin = glass + bars.bottom
+            pageIndicator.layoutParams = pillLp
             WindowInsetsCompat.CONSUMED
         }
     }
@@ -1296,7 +1316,7 @@ class ViewerActivity : AppCompatActivity() {
     /**
      * Puts the document under the system bars, or takes it back out.
      *
-     * The toolbar is gone rather than invisible so the page can use the space.
+     * The chrome host is gone rather than invisible so the page can use the space.
      * animateLayoutChanges on the root is what keeps that from jumping.
      */
     private fun applyImmersive(on: Boolean) {
@@ -1307,7 +1327,7 @@ class ViewerActivity : AppCompatActivity() {
         }
         immersive = on
         immersiveBackCallback.isEnabled = on
-        findViewById<View>(R.id.toolbar).visibility = if (on) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.chromeHost).visibility = if (on) View.GONE else View.VISIBLE
         syncPageStripVisibility()
         val bars = WindowInsetsControllerCompat(window, window.decorView)
         if (on) {

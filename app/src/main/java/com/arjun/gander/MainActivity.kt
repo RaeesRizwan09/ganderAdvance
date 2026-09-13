@@ -13,6 +13,7 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -25,6 +26,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat
 import androidx.recyclerview.widget.GridLayoutManager
@@ -150,14 +152,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { v, insets ->
-            val bars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            WindowInsetsCompat.CONSUMED
-        }
 
         toolbar = findViewById(R.id.toolbar)
         lockup = findViewById(R.id.lockup)
@@ -235,6 +231,47 @@ class MainActivity : AppCompatActivity() {
 
         restoreStack(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, backCallback)
+        findViewById<View>(R.id.toolbarGlass).clipToGlass()
+        pillNav.clipToGlass()
+        applyGlassInsets()
+    }
+
+    /**
+     * Content is edge to edge; chrome floats over it.
+     *
+     * Padding the root used to push the list out of the status bar and cut the page
+     * into a slab. Liquid Glass wants the opposite: the document (here, the recents
+     * list) reaches the screen edge, and the toolbar / pill sit on a translucent
+     * surface above it. Insets therefore land on those surfaces, not on the root.
+     */
+    private fun applyGlassInsets() {
+        val root = findViewById<View>(R.id.root)
+        val chrome = findViewById<View>(R.id.chromeHost)
+        val navHost = findViewById<View>(R.id.pillNavHost)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            root.setPadding(bars.left, 0, bars.right, 0)
+            val glass = resources.getDimensionPixelSize(R.dimen.glass_margin)
+            val pill = resources.getDimensionPixelSize(R.dimen.nav_pill_margin)
+            chrome.setPadding(glass, bars.top + glass, glass, 0)
+            navHost.setPadding(pill, pill, pill, bars.bottom + pill)
+            val toolbarH = TypedValue().let { tv ->
+                theme.resolveAttribute(android.R.attr.actionBarSize, tv, true)
+                tv.getDimension(resources.displayMetrics).toInt()
+            }
+            val top = bars.top + glass + toolbarH + glass
+            val bottom = bars.bottom + resources.getDimensionPixelSize(R.dimen.home_list_padding_bottom)
+            val inset = resources.getDimensionPixelSize(R.dimen.row_inset)
+            list.setPadding(inset, top, inset, bottom)
+            welcome.setPadding(0, top, 0, 0)
+            val fabLp = fab.layoutParams as ViewGroup.MarginLayoutParams
+            fabLp.bottomMargin =
+                resources.getDimensionPixelSize(R.dimen.home_fab_margin_bottom) + bars.bottom
+            fab.layoutParams = fabLp
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     /**

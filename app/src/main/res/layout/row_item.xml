@@ -2,14 +2,16 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
+    android:layout_marginTop="@dimen/row_gap"
+    android:layout_marginBottom="@dimen/row_gap"
+    android:background="@drawable/bg_row"
     android:gravity="center_vertical"
-    android:minHeight="60dp"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="6dp"
-    android:paddingBottom="6dp"
-    android:background="?attr/selectableItemBackground">
+    android:minHeight="64dp"
+    android:orientation="horizontal"
+    android:paddingStart="14dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="8dp">
 
     <!-- The row itself carries the description (set in MainActivity), so the badge,
          thumbnail, title and subtitle are one TalkBack stop rather than four -->

@@ -57,6 +57,14 @@
     <color name="gander_inverse_on_surface">#F8F3EA</color>
     <color name="gander_inverse_primary">#FFB39E</color>
 
+    <!-- Liquid Glass fills. Translucent so content can sit underneath chrome
+         the way system materials do, instead of an opaque bar cutting the page. -->
+    <color name="glass_fill">#B8FEF9F0</color>
+    <color name="glass_fill_strong">#D9FEF9F0</color>
+    <color name="glass_stroke">#66FFFFFF</color>
+    <color name="glass_highlight">#99FFFFFF</color>
+    <color name="glass_shadow">#26000000</color>
+
     <!-- The ground behind a track. The same warm near-black the app uses at night, and
          deliberately with no values-night twin: a screen holding nothing but cover art is
          dark whatever the phone is set to, so this must not invert with the theme. -->

@@ -34,4 +34,8 @@
     <dimen name="home_list_padding_bottom">168dp</dimen>
     <dimen name="home_fab_margin_bottom">96dp</dimen>
     <dimen name="row_text_indent">14dp</dimen>
+    <dimen name="glass_margin">12dp</dimen>
+    <dimen name="glass_elevation">10dp</dimen>
+    <dimen name="row_gap">4dp</dimen>
+    <dimen name="row_inset">16dp</dimen>
 </resources>

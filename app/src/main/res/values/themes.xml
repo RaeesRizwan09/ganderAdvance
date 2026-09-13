@@ -48,7 +48,12 @@
         <item name="colorPrimaryInverse">@color/gander_inverse_primary</item>
         <item name="android:colorBackground">@color/gander_surface</item>
         <item name="android:windowBackground">@color/gander_surface</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">@bool/gander_light_status_bar</item>
+        <item name="android:windowLightNavigationBar">@bool/gander_light_navigation_bar</item>
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 
     <style name="ShapeAppearance.Gander.Thumb" parent="">

@@ -56,4 +56,10 @@
     <color name="gander_inverse_surface">#E7E2D9</color>
     <color name="gander_inverse_on_surface">#1E1B15</color>
     <color name="gander_inverse_primary">#AF2D18</color>
+
+    <color name="glass_fill">#B817130A</color>
+    <color name="glass_fill_strong">#D917130A</color>
+    <color name="glass_stroke">#3DFFFFFF</color>
+    <color name="glass_highlight">#26FFFFFF</color>
+    <color name="glass_shadow">#66000000</color>
 </resources>

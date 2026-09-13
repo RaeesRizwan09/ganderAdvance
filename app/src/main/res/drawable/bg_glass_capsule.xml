@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The floating bottom nav. Capsule, not a bar: it sits on the surface
-     rather than replacing it, so the list can scroll underneath.
-
-     Translucent glass fill plus a hairline, so neighbouring chrome can
-     share one material instead of an opaque slab. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/glass_fill_strong" />

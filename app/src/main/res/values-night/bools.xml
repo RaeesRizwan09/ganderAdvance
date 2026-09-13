@@ -9,4 +9,5 @@
 -->
 <resources>
     <bool name="gander_light_status_bar">false</bool>
+    <bool name="gander_light_navigation_bar">false</bool>
 </resources>
