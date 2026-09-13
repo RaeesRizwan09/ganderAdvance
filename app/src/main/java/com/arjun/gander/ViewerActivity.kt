@@ -15,6 +15,7 @@ import android.os.Looper
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.text.InputType
+import android.view.GestureDetector
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
@@ -44,6 +45,7 @@ import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -73,6 +75,7 @@ class ViewerActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_PATH = "path"
         private const val STATE_COPY_SOURCE = "copy_source"
+        private const val STATE_IMMERSIVE = "immersive"
         private const val ASSET_HOST = "appassets.androidplatform.net"
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
         private const val DOWNLOADS_AUTHORITY = "com.android.providers.downloads.documents"
@@ -261,12 +264,14 @@ class ViewerActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_COPY_SOURCE, copySource?.toString())
+        outState.putBoolean(STATE_IMMERSIVE, immersive)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_viewer)
         applySystemBarInsets(findViewById(R.id.root))
+        onBackPressedDispatcher.addCallback(this, immersiveBackCallback)
         onBackPressedDispatcher.addCallback(this, searchBackCallback)
         pageIndicator.setOnClickListener { askForPage() }
 
@@ -313,6 +318,10 @@ class ViewerActivity : AppCompatActivity() {
         }
         setUpSearch(toolbar, kind)
         setUpActions(toolbar, kind, uri, name, ext, mime)
+        if (savedInstanceState?.getBoolean(STATE_IMMERSIVE) == true) {
+            setImmersive(true)
+            playerView?.hideController()
+        }
     }
 
     /** Night mode, share and "show in file manager" toolbar actions. */
@@ -538,6 +547,31 @@ class ViewerActivity : AppCompatActivity() {
     private val searchBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = closeSearchBar()
     }
+
+    /**
+     * Takes Back while the chrome is away, so it brings the toolbar back instead
+     * of leaving the document. Same shape as [searchBackCallback]: nothing here
+     * finishes the activity, the callback switches itself off, and the next press
+     * is an ordinary Back.
+     */
+    private val immersiveBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() = setImmersive(false)
+    }
+
+    /**
+     * Whether the toolbar and system bars are currently off the document.
+     *
+     * A tap on the page flips this. Search, TalkBack and audio stand it down:
+     * a hidden toolbar cannot be reached by swipe navigation, the find box
+     * lives in the chrome, and an audio file has nothing to look at full
+     * screen in the first place.
+     */
+    private var immersive = false
+
+    /** False on audio, and once the renderer has gone: there is no document to fill. */
+    private var chromeToggleEnabled = true
+
+    private var playerView: PlayerView? = null
 
     /** Last page pdf.html reported, and how many there are. Zero until it says. */
     private var pageAt = 0
@@ -1085,6 +1119,7 @@ class ViewerActivity : AppCompatActivity() {
             bar.visibility = LinearLayout.VISIBLE
             searchBackCallback.isEnabled = true
             searchBarOpen = true
+            setImmersive(false)
             pageFader.hideNow()
             input.requestFocus()
             imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
@@ -1232,6 +1267,58 @@ class ViewerActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Puts the document under the system bars, or takes it back out.
+     *
+     * The toolbar is gone rather than invisible so the page can use the space.
+     * animateLayoutChanges on the root is what keeps that from jumping.
+     */
+    private fun setImmersive(on: Boolean) {
+        if (on && (searchBarOpen || touchExplorationOn() || !chromeToggleEnabled)) return
+        if (on == immersive) {
+            immersiveBackCallback.isEnabled = on
+            return
+        }
+        immersive = on
+        immersiveBackCallback.isEnabled = on
+        findViewById<View>(R.id.toolbar).visibility = if (on) View.GONE else View.VISIBLE
+        val bars = WindowInsetsControllerCompat(window, window.decorView)
+        if (on) {
+            bars.hide(WindowInsetsCompat.Type.systemBars())
+            bars.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            bars.show(WindowInsetsCompat.Type.systemBars())
+        }
+        if (!on) playerView?.showController()
+    }
+
+    private fun toggleImmersive() {
+        setImmersive(!immersive)
+    }
+
+    /**
+     * A confirmed tap on the document flips the chrome. The listener itself
+     * returns false so a scroll, pinch or text selection still reaches the view.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private fun attachChromeToggle(view: View) {
+        val taps = GestureDetector(
+            this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(e: MotionEvent): Boolean = true
+                override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                    toggleImmersive()
+                    return true
+                }
+            }
+        )
+        view.setOnTouchListener { _, event ->
+            taps.onTouchEvent(event)
+            false
+        }
+    }
+
     /** Shared plain text becomes a temp file shown in the text viewer. */
     private fun sharedTextUri(): Uri? {
         val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return null
@@ -1271,6 +1358,7 @@ class ViewerActivity : AppCompatActivity() {
             }
         })
         container.addView(imageView, matchParent())
+        attachChromeToggle(imageView)
         imageView.setImage(ImageSource.uri(uri))
     }
 
@@ -1344,7 +1432,16 @@ class ViewerActivity : AppCompatActivity() {
             playerView.keepScreenOn = true
             playerView.controllerShowTimeoutMs = 2500
             playerView.setBackgroundColor(Color.BLACK)
+            // The transport already hides itself on a tap. The toolbar follows it
+            // rather than fighting it with a second gesture.
+            playerView.setControllerVisibilityListener(
+                PlayerView.ControllerVisibilityListener { visibility ->
+                    setImmersive(visibility != View.VISIBLE)
+                }
+            )
         }
+        this.playerView = playerView
+        if (audio) chromeToggleEnabled = false
         container.addView(playerView, matchParent())
 
         val exo = ExoPlayer.Builder(this).build()
@@ -1378,6 +1475,8 @@ class ViewerActivity : AppCompatActivity() {
             override fun onPlayerError(error: PlaybackException) {
                 exo.release()
                 player = null
+                playerView = null
+                chromeToggleEnabled = true
                 container.removeAllViews()
                 showWeb(container, uri, FileKind.UNSUPPORTED, name, ext)
             }
@@ -1509,6 +1608,7 @@ class ViewerActivity : AppCompatActivity() {
         setUpFastScroll(web, kind)
 
         container.addView(web, matchParent())
+        attachChromeToggle(web)
         // The load strategy is decided here, not in the page, so the headers we serve
         // and the loader the page picks cannot disagree
         val ranged = if (useRanges(total)) 1 else 0
@@ -1538,6 +1638,8 @@ class ViewerActivity : AppCompatActivity() {
         // it can neither be asked anything nor answer. The activity restarts to get a
         // working one, which is where a new channel comes from.
         closeSearchBar()
+        chromeToggleEnabled = false
+        setImmersive(false)
         pageAt = 0
         pageTotal = 0
         goToPageItem?.isVisible = false
@@ -1752,6 +1854,7 @@ class ViewerActivity : AppCompatActivity() {
     override fun onDestroy() {
         player?.release()
         player = null
+        playerView = null
         webView?.destroy()
         webView = null
         super.onDestroy()
