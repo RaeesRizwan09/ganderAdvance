@@ -319,7 +319,7 @@ class ViewerActivity : AppCompatActivity() {
         setUpSearch(toolbar, kind)
         setUpActions(toolbar, kind, uri, name, ext, mime)
         if (savedInstanceState?.getBoolean(STATE_IMMERSIVE) == true) {
-            setImmersive(true)
+            applyImmersive(true)
             playerView?.hideController()
         }
     }
@@ -555,7 +555,7 @@ class ViewerActivity : AppCompatActivity() {
      * is an ordinary Back.
      */
     private val immersiveBackCallback = object : OnBackPressedCallback(false) {
-        override fun handleOnBackPressed() = setImmersive(false)
+        override fun handleOnBackPressed() = applyImmersive(false)
     }
 
     /**
@@ -1119,7 +1119,7 @@ class ViewerActivity : AppCompatActivity() {
             bar.visibility = LinearLayout.VISIBLE
             searchBackCallback.isEnabled = true
             searchBarOpen = true
-            setImmersive(false)
+            applyImmersive(false)
             pageFader.hideNow()
             input.requestFocus()
             imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
@@ -1273,7 +1273,7 @@ class ViewerActivity : AppCompatActivity() {
      * The toolbar is gone rather than invisible so the page can use the space.
      * animateLayoutChanges on the root is what keeps that from jumping.
      */
-    private fun setImmersive(on: Boolean) {
+    private fun applyImmersive(on: Boolean) {
         if (on && (searchBarOpen || touchExplorationOn() || !chromeToggleEnabled)) return
         if (on == immersive) {
             immersiveBackCallback.isEnabled = on
@@ -1294,7 +1294,7 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     private fun toggleImmersive() {
-        setImmersive(!immersive)
+        applyImmersive(!immersive)
     }
 
     /**
@@ -1436,7 +1436,7 @@ class ViewerActivity : AppCompatActivity() {
             // rather than fighting it with a second gesture.
             playerView.setControllerVisibilityListener(
                 PlayerView.ControllerVisibilityListener { visibility ->
-                    setImmersive(visibility != View.VISIBLE)
+                    applyImmersive(visibility != View.VISIBLE)
                 }
             )
         }
@@ -1475,7 +1475,7 @@ class ViewerActivity : AppCompatActivity() {
             override fun onPlayerError(error: PlaybackException) {
                 exo.release()
                 player = null
-                playerView = null
+                this@ViewerActivity.playerView = null
                 chromeToggleEnabled = true
                 container.removeAllViews()
                 showWeb(container, uri, FileKind.UNSUPPORTED, name, ext)
@@ -1639,7 +1639,7 @@ class ViewerActivity : AppCompatActivity() {
         // working one, which is where a new channel comes from.
         closeSearchBar()
         chromeToggleEnabled = false
-        setImmersive(false)
+        applyImmersive(false)
         pageAt = 0
         pageTotal = 0
         goToPageItem?.isVisible = false
