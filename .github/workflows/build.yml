@@ -1,9 +1,7 @@
 name: Build
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -37,3 +35,4 @@ jobs:
         with:
           name: gander-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          
