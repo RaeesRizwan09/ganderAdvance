@@ -344,6 +344,7 @@ class ViewerActivity : AppCompatActivity() {
         mime: String?
     ) {
         setUpNightMode(toolbar, kind)
+        setUpPageStripToggle(toolbar, kind)
         goToPageItem = toolbar.menu.findItem(R.id.action_go_to_page).apply {
             setOnMenuItemClickListener { askForPage(); true }
         }
@@ -682,6 +683,9 @@ class ViewerActivity : AppCompatActivity() {
 
     /** Bound once the toolbar exists, shown once pdf.html has said how long the file is. */
     private var goToPageItem: MenuItem? = null
+
+    /** Shown with Go to page, once there is more than one page to page through. */
+    private var pageStripItem: MenuItem? = null
 
     /**
      * Put the page readout on screen, or keep it there.
@@ -1238,7 +1242,10 @@ class ViewerActivity : AppCompatActivity() {
                         val n = said[1].toIntOrNull() ?: return
                         val of = said[2].toIntOrNull() ?: return
                         if (n < 1 || of < 1 || n > of) return
-                        if (pageTotal == 0) goToPageItem?.isVisible = true
+                        if (pageTotal == 0) {
+                            goToPageItem?.isVisible = true
+                            pageStripItem?.isVisible = true
+                        }
                         pageAt = n
                         pageTotal = of
                         bindPageStrip()
@@ -1663,6 +1670,7 @@ class ViewerActivity : AppCompatActivity() {
         pageAt = 0
         pageTotal = 0
         goToPageItem?.isVisible = false
+        pageStripItem?.isVisible = false
         pageStripAdapter.submit(null, 0)
         syncPageStripVisibility()
         pageFader.hideNow()
@@ -1675,6 +1683,7 @@ class ViewerActivity : AppCompatActivity() {
         val goneMenu = findViewById<MaterialToolbar>(R.id.toolbar).menu
         goneMenu.findItem(R.id.action_search)?.isVisible = false
         goneMenu.findItem(R.id.action_night_mode)?.isVisible = false
+        goneMenu.findItem(R.id.action_page_strip)?.isVisible = false
         closeSearchChannel()
 
         container.removeAllViews()
@@ -1864,7 +1873,31 @@ class ViewerActivity : AppCompatActivity() {
     }
 
     private fun pageStripWanted(): Boolean =
-        pageTotal >= 2 && !searchBarOpen && !immersive && documentUri != null
+        pageTotal >= 2 &&
+            !searchBarOpen &&
+            !immersive &&
+            documentUri != null &&
+            Settings.pageStrip(this)
+
+    private fun setUpPageStripToggle(toolbar: MaterialToolbar, kind: FileKind) {
+        val item = toolbar.menu.findItem(R.id.action_page_strip)
+        val blocked = pdfjsFloorParams(kind, webView?.settings?.userAgentString).isNotEmpty()
+        if (kind != FileKind.PDF || !canPortSearch() || blocked) {
+            item.isVisible = false
+            pageStripItem = null
+            return
+        }
+        pageStripItem = item
+        item.isChecked = Settings.pageStrip(this)
+        item.setOnMenuItemClickListener {
+            val on = !it.isChecked
+            it.isChecked = on
+            Settings.setPageStrip(this, on)
+            syncPageStripVisibility()
+            if (!on) showPageIndicator()
+            true
+        }
+    }
 
     private fun bindPageStrip() {
         pageStripAdapter.submit(documentUri, pageTotal)
