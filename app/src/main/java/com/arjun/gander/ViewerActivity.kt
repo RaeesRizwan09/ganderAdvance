@@ -1925,14 +1925,6 @@ class ViewerActivity : AppCompatActivity() {
 
         override fun getItemCount(): Int = count
 
-        override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
-            if (payloads.any { it == PAYLOAD_SELECT }) {
-                holder.bindSelected(position + 1 == selected)
-                return
-            }
-            super.onBindViewHolder(holder, position, payloads)
-        }
-
         override fun onBindViewHolder(holder: Holder, position: Int) {
             val page = position + 1
             val src = uri
